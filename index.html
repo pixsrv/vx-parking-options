@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>One-pager Zarząd - Silnik Wizualizacji (v4)</title>
+    <title>One-pager Zarząd - Silnik Wizualizacji (v5)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @media print {
@@ -16,61 +16,95 @@
         .section-disabled { opacity: 0.5; pointer-events: none; filter: grayscale(100%); }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-800 font-sans p-4 md:p-8 min-h-screen flex flex-col">
+<body class="bg-gray-50 text-gray-800 font-sans p-4 md:p-8 min-h-screen flex flex-col relative" onclick="closeDropdown(event)">
 
-    <!-- Panel sterowania -->
-    <div class="max-w-7xl mx-auto w-full mb-6 no-print">
-        <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div class="flex items-center gap-3 w-full sm:w-auto">
-                <label class="bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-5 py-2.5 rounded shadow-sm font-semibold transition cursor-pointer flex items-center justify-center w-full sm:w-auto">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                    <span>Wczytaj plik .json</span>
-                    <input type="file" accept=".json" class="hidden" onchange="loadFromFile(event)">
-                </label>
-                <span id="file-name" class="text-sm font-medium text-gray-500 hidden sm:block">Brak pliku</span>
-            </div>
+    <!-- Subtelny Panel Nawigacyjny (Górny prawy róg) -->
+    <div class="max-w-7xl mx-auto w-full flex justify-end items-center gap-4 relative z-50 no-print">
 
-            <div id="action-buttons" class="hidden flex gap-2 w-full sm:w-auto">
-                <button id="btn-edit" onclick="toggleMode()" class="bg-gray-800 hover:bg-gray-900 text-white px-5 py-2.5 rounded font-medium transition shadow-sm w-full sm:w-auto">
-                    ✏️ Edytuj
-                </button>
-                <button id="btn-save" onclick="saveDataToFile()" class="hidden bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded font-medium transition shadow-sm w-full sm:w-auto">
-                    💾 Zapisz jako nowy .json
-                </button>
+        <!-- Nazwa pliku -->
+        <span id="file-name" class="text-sm font-medium text-gray-500 hidden">Brak pliku</span>
+
+        <!-- Przycisk Zapisz (widoczny tylko w trybie edycji) -->
+        <button id="btn-save" onclick="saveDataToFile()" class="hidden bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-medium transition shadow-sm">
+            💾 Zapisz jako nowy .json
+        </button>
+
+        <!-- Dropdown Menu (3 kropki) -->
+        <div class="relative inline-block text-left">
+            <button onclick="toggleDropdown(event)" class="text-gray-500 hover:text-gray-700 p-2 rounded-full hover:bg-gray-200 focus:outline-none transition">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"></path>
+                </svg>
+            </button>
+
+            <!-- Menu opcji -->
+            <div id="dropdown-menu" class="hidden origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none">
+                <div class="py-1" role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
+                    <!-- Ukryty input do ładowania pliku -->
+                    <input type="file" id="file-upload" accept=".json" class="hidden" onchange="loadFromFile(event)">
+
+                    <a href="#" onclick="document.getElementById('file-upload').click(); event.preventDefault();" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900" role="menuitem">
+                        📂 Wczytaj plik JSON
+                    </a>
+
+                    <a href="#" id="menu-btn-edit" onclick="toggleMode(); event.preventDefault();" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 hidden" role="menuitem">
+                        ✏️ Edytuj dokument
+                    </a>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- Kontenery na widoki -->
     <div id="view-mode" class="max-w-7xl mx-auto w-full flex-grow">
-        <div class="flex flex-col items-center justify-center h-64 border-2 border-dashed border-gray-300 rounded-xl bg-white text-gray-400">
+        <!-- Ekran powitalny -->
+        <div class="flex flex-col items-center justify-center h-64 border-2 border-dashed border-gray-300 rounded-xl bg-white text-gray-400 mt-12">
             <svg class="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-            <p class="text-lg font-medium">Załaduj plik JSON z wariantami, aby wygenerować dokument.</p>
+            <p class="text-lg font-medium">Kliknij w menu (⋮) w prawym górnym rogu i wczytaj plik JSON.</p>
         </div>
     </div>
 
-    <div id="edit-mode" class="max-w-7xl mx-auto w-full hidden bg-white p-6 rounded-lg shadow-sm border border-gray-200"></div>
+    <div id="edit-mode" class="max-w-7xl mx-auto w-full hidden bg-white p-6 rounded-lg shadow-sm border border-gray-200 mt-8"></div>
 
 <script>
 let currentData = null;
 let isEditMode = false;
 let currentFileName = "nowe_warianty.json";
 
+// --- Obsługa Dropdown ---
+function toggleDropdown(event) {
+    event.stopPropagation(); // Zapobiega natychmiastowemu zamknięciu przez kliknięcie w body
+    document.getElementById('dropdown-menu').classList.toggle('hidden');
+}
+
+function closeDropdown(event) {
+    const dropdown = document.getElementById('dropdown-menu');
+    if (!dropdown.classList.contains('hidden')) {
+        dropdown.classList.add('hidden');
+    }
+}
+// ------------------------
+
 function loadFromFile(event) {
     const file = event.target.files[0];
     if (!file) return;
 
     currentFileName = file.name;
-    document.getElementById('file-name').textContent = currentFileName;
+    const fileNameEl = document.getElementById('file-name');
+    fileNameEl.textContent = currentFileName;
+    fileNameEl.classList.remove('hidden');
 
     const reader = new FileReader();
     reader.onload = function(e) {
         try {
             currentData = JSON.parse(e.target.result);
-            document.getElementById('action-buttons').classList.remove('hidden');
-            document.getElementById('action-buttons').classList.add('flex');
+
+            // Pokaż opcję edycji w menu po poprawnym załadowaniu
+            document.getElementById('menu-btn-edit').classList.remove('hidden');
+
             if (isEditMode) toggleMode();
             renderView();
+            closeDropdown(new Event('click')); // Zamknij menu po załadowaniu
         } catch (error) {
             console.error("Błąd parsowania JSON:", error);
             alert("Błąd: Plik nie jest prawidłowym formatem JSON narzędzia.");
@@ -125,17 +159,22 @@ function saveDataToFile() {
     downloadAnchorNode.remove();
 
     renderView();
-    toggleMode();
+    toggleMode(); // Wyjdź z trybu edycji po zapisie
 }
 
 function toggleMode() {
     isEditMode = !isEditMode;
     document.getElementById('view-mode').classList.toggle('hidden', isEditMode);
     document.getElementById('edit-mode').classList.toggle('hidden', !isEditMode);
+
+    // Przycisk "Zapisz" widoczny tylko podczas edycji
     document.getElementById('btn-save').classList.toggle('hidden', !isEditMode);
 
-    const btnEdit = document.getElementById('btn-edit');
-    btnEdit.innerHTML = isEditMode ? '❌ Anuluj' : '✏️ Edytuj';
+    // Zmiana tekstu w menu
+    const menuBtnEdit = document.getElementById('menu-btn-edit');
+    menuBtnEdit.innerHTML = isEditMode ? '❌ Anuluj edycję' : '✏️ Edytuj dokument';
+
+    closeDropdown(new Event('click')); // Zamknij menu
 
     if (isEditMode) renderEditForm();
 }
@@ -223,14 +262,12 @@ function renderEditForm() {
                         <input id="inp-${i}-koszt-w" type="text" value="${op.koszty_wartosc || ''}" placeholder="Koszt" class="w-1/3 border p-1.5 rounded text-sm font-semibold">
                         <label class="flex items-center space-x-2 text-xs font-medium cursor-pointer w-2/3 bg-red-50 px-2 rounded border border-red-100"><input id="inp-${i}-koszt-a" type="checkbox" ${op.koszty_alert?'checked':''} class="rounded text-red-600"><span class="text-red-700">Oznacz na czerwono</span></label>
                     </div>
-                    <!-- ZMIANA: textarea pozwala na wpisanie wielu linii -->
                     <textarea id="inp-${i}-koszt-o" placeholder="Komentarz do kosztów (każda nowa linia to nowy bullet)" class="w-full border p-1.5 rounded text-xs text-red-700 h-20 resize-y">${op.koszty_opis || ''}</textarea>
                 </div>
 
                 <div class="sekcja-przychody-kontener bg-white p-3 rounded border border-gray-200 ${showPrzychody ? '' : 'section-disabled'}">
                     <div class="text-xs font-bold uppercase text-gray-500 mb-2">Przychody</div>
                     <input id="inp-${i}-przych-w" type="text" value="${op.przychody_wartosc || ''}" placeholder="Przychód" class="w-1/3 border p-1.5 rounded text-sm font-semibold mb-2">
-                    <!-- ZMIANA: textarea pozwala na wpisanie wielu linii -->
                     <textarea id="inp-${i}-przych-o" placeholder="Komentarz do przychodów (każda nowa linia to nowy bullet)" class="w-full border p-1.5 rounded text-xs text-green-700 h-20 resize-y">${op.przychody_opis || ''}</textarea>
                 </div>
 
@@ -295,7 +332,6 @@ function renderView() {
         return html;
     };
 
-    // ZMIANA: Konwerter wieloliniowego tekstu na bullety lub pojedynczą linię
     const textToBullets = (text, icon, colorCss) => {
         if (!text) return '-';
         const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
@@ -389,9 +425,10 @@ function renderView() {
         return cardContent;
     }).join('');
 
+    // ZMIANA: Zwiększone marginesy wokół nagłówka (pt-8, mb-12)
     const layoutHTML = `
-        <div class="mb-10 text-center">
-            <h1 class="text-3xl md:text-4xl font-bold mb-6 text-gray-900">${currentData.naglowek || ''}</h1>
+        <div class="mb-12 pt-8 text-center">
+            <h1 class="text-3xl md:text-4xl font-bold mb-8 text-gray-900">${currentData.naglowek || ''}</h1>
             <div class="inline-block bg-blue-50 border border-blue-200 rounded-lg p-5 md:p-6 text-left max-w-4xl shadow-sm">
                 <p class="text-lg text-gray-800 leading-relaxed">
                     <strong class="text-blue-800 font-bold uppercase tracking-wide mr-2">${currentData.bluf_wyroznienie || ''}</strong>
