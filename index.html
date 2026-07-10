@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>One-pager Zarząd - Silnik Wizualizacji (v4)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @media print {
+            body { background-color: white; }
+            .no-print { display: none !important; }
+            .shadow-xl, .shadow-sm { box-shadow: none; }
+            .border-gray-200, .border-blue-100 { border-color: #e5e7eb !important; }
+            .bg-blue-50 { background-color: #f9fafb !important; }
+        }
+        .section-disabled { opacity: 0.5; pointer-events: none; filter: grayscale(100%); }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans p-4 md:p-8 min-h-screen flex flex-col">
+
+    <!-- Panel sterowania -->
+    <div class="max-w-7xl mx-auto w-full mb-6 no-print">
+        <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3 w-full sm:w-auto">
+                <label class="bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-5 py-2.5 rounded shadow-sm font-semibold transition cursor-pointer flex items-center justify-center w-full sm:w-auto">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                    <span>Wczytaj plik .json</span>
+                    <input type="file" accept=".json" class="hidden" onchange="loadFromFile(event)">
+                </label>
+                <span id="file-name" class="text-sm font-medium text-gray-500 hidden sm:block">Brak pliku</span>
+            </div>
+
+            <div id="action-buttons" class="hidden flex gap-2 w-full sm:w-auto">
+                <button id="btn-edit" onclick="toggleMode()" class="bg-gray-800 hover:bg-gray-900 text-white px-5 py-2.5 rounded font-medium transition shadow-sm w-full sm:w-auto">
+                    ✏️ Edytuj
+                </button>
+                <button id="btn-save" onclick="saveDataToFile()" class="hidden bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded font-medium transition shadow-sm w-full sm:w-auto">
+                    💾 Zapisz jako nowy .json
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Kontenery na widoki -->
+    <div id="view-mode" class="max-w-7xl mx-auto w-full flex-grow">
+        <div class="flex flex-col items-center justify-center h-64 border-2 border-dashed border-gray-300 rounded-xl bg-white text-gray-400">
+            <svg class="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            <p class="text-lg font-medium">Załaduj plik JSON z wariantami, aby wygenerować dokument.</p>
+        </div>
+    </div>
+
+    <div id="edit-mode" class="max-w-7xl mx-auto w-full hidden bg-white p-6 rounded-lg shadow-sm border border-gray-200"></div>
+
+<script>
+let currentData = null;
+let isEditMode = false;
+let currentFileName = "nowe_warianty.json";
+
+function loadFromFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    currentFileName = file.name;
+    document.getElementById('file-name').textContent = currentFileName;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            currentData = JSON.parse(e.target.result);
+            document.getElementById('action-buttons').classList.remove('hidden');
+            document.getElementById('action-buttons').classList.add('flex');
+            if (isEditMode) toggleMode();
+            renderView();
+        } catch (error) {
+            console.error("Błąd parsowania JSON:", error);
+            alert("Błąd: Plik nie jest prawidłowym formatem JSON narzędzia.");
+        }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+}
+
+function saveDataToFile() {
+    currentData.naglowek = document.getElementById('inp-naglowek').value || '';
+    currentData.bluf_wyroznienie = document.getElementById('inp-bluf-wyr').value || '';
+    currentData.bluf_tekst = document.getElementById('inp-bluf-txt').value || '';
+
+    currentData.pokaz_sekcje_miejsca = document.getElementById('chk-sekcja-miejsca').checked;
+    currentData.pokaz_sekcje_koszty = document.getElementById('chk-sekcja-koszty').checked;
+    currentData.pokaz_sekcje_przychody = document.getElementById('chk-sekcja-przychody').checked;
+    currentData.pokaz_sekcje_harmonogram = document.getElementById('chk-sekcja-harmonogram').checked;
+
+    currentData.opcje.forEach((op, i) => {
+        op.tytul = document.getElementById(`inp-${i}-tytul`).value || '';
+        op.podtytul = document.getElementById(`inp-${i}-podtytul`).value || '';
+        op.rekomendowana = document.getElementById(`inp-${i}-rek`).checked;
+
+        op.budA = document.getElementById(`inp-${i}-buda`).value !== '' ? parseInt(document.getElementById(`inp-${i}-buda`).value) : null;
+        op.budB = document.getElementById(`inp-${i}-budb`).value !== '' ? parseInt(document.getElementById(`inp-${i}-budb`).value) : null;
+        op.budC = document.getElementById(`inp-${i}-budc`).value !== '' ? parseInt(document.getElementById(`inp-${i}-budc`).value) : null;
+        op.budD = document.getElementById(`inp-${i}-budd`).value !== '' ? parseInt(document.getElementById(`inp-${i}-budd`).value) : null;
+        op.budE = document.getElementById(`inp-${i}-bude`).value !== '' ? parseInt(document.getElementById(`inp-${i}-bude`).value) : null;
+
+        op.koszty_wartosc = document.getElementById(`inp-${i}-koszt-w`).value || '';
+        op.koszty_opis = document.getElementById(`inp-${i}-koszt-o`).value || '';
+        op.koszty_alert = document.getElementById(`inp-${i}-koszt-a`).checked;
+
+        op.przychody_wartosc = document.getElementById(`inp-${i}-przych-w`).value || '';
+        op.przychody_opis = document.getElementById(`inp-${i}-przych-o`).value || '';
+
+        op.czas_budowy = document.getElementById(`inp-${i}-czasb-w`).value || '';
+        op.czas_budowy_alert = document.getElementById(`inp-${i}-czasb-a`).checked;
+
+        op.czas_komercjalizacji = document.getElementById(`inp-${i}-czask-w`).value || '';
+        op.czas_komercjalizacji_sukces = document.getElementById(`inp-${i}-czask-s`).checked;
+    });
+
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(currentData, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    const exportName = currentFileName.startsWith('edycja_') ? currentFileName : `edycja_${currentFileName}`;
+    downloadAnchorNode.setAttribute("download", exportName);
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+
+    renderView();
+    toggleMode();
+}
+
+function toggleMode() {
+    isEditMode = !isEditMode;
+    document.getElementById('view-mode').classList.toggle('hidden', isEditMode);
+    document.getElementById('edit-mode').classList.toggle('hidden', !isEditMode);
+    document.getElementById('btn-save').classList.toggle('hidden', !isEditMode);
+
+    const btnEdit = document.getElementById('btn-edit');
+    btnEdit.innerHTML = isEditMode ? '❌ Anuluj' : '✏️ Edytuj';
+
+    if (isEditMode) renderEditForm();
+}
+
+function toggleSectionState(sectionName) {
+    const isChecked = document.getElementById(`chk-sekcja-${sectionName}`).checked;
+    const elements = document.querySelectorAll(`.sekcja-${sectionName}-kontener`);
+    elements.forEach(el => {
+        if(isChecked) el.classList.remove('section-disabled');
+        else el.classList.add('section-disabled');
+    });
+}
+
+function renderEditForm() {
+    if (!currentData) return;
+
+    const showMiejsca = currentData.pokaz_sekcje_miejsca !== false;
+    const showKoszty = currentData.pokaz_sekcje_koszty !== false;
+    const showPrzychody = currentData.pokaz_sekcje_przychody !== false;
+    const showHarmonogram = currentData.pokaz_sekcje_harmonogram !== false;
+
+    let formHTML = `
+        <h2 class="text-2xl font-bold mb-4 text-gray-800 border-b pb-2 flex justify-between items-center">
+            Informacje Główne (Dokument)
+        </h2>
+        <div class="grid grid-cols-1 gap-4 mb-8 bg-gray-50 p-4 rounded border">
+            <label class="block">
+                <span class="text-sm font-semibold text-gray-700">Tytuł dokumentu</span>
+                <input id="inp-naglowek" type="text" value="${currentData.naglowek || ''}" class="mt-1 w-full border border-gray-300 rounded p-2 focus:ring-2 outline-none">
+            </label>
+            <label class="block">
+                <span class="text-sm font-semibold text-gray-700">Wnioski: Wyróżnienie (BLUF)</span>
+                <input id="inp-bluf-wyr" type="text" value="${currentData.bluf_wyroznienie || ''}" class="mt-1 w-full border border-gray-300 rounded p-2 text-blue-700 font-bold focus:ring-2 outline-none">
+            </label>
+            <label class="block">
+                <span class="text-sm font-semibold text-gray-700">Wnioski: Pełny tekst uzasadnienia</span>
+                <textarea id="inp-bluf-txt" class="mt-1 w-full border border-gray-300 rounded p-2 h-20 focus:ring-2 outline-none">${currentData.bluf_tekst || ''}</textarea>
+            </label>
+        </div>
+
+        <h2 class="text-2xl font-bold mb-4 text-gray-800 border-b pb-2 flex justify-between items-center">
+            Opcje Wariantowe
+            <div class="flex gap-4 text-sm font-normal">
+                <label class="flex items-center cursor-pointer" title="Widoczność: Miejsca postojowe"><input id="chk-sekcja-miejsca" type="checkbox" ${showMiejsca ? 'checked' : ''} onchange="toggleSectionState('miejsca')" class="mr-1"> 🚗</label>
+                <label class="flex items-center cursor-pointer" title="Widoczność: Koszty"><input id="chk-sekcja-koszty" type="checkbox" ${showKoszty ? 'checked' : ''} onchange="toggleSectionState('koszty')" class="mr-1"> 💰</label>
+                <label class="flex items-center cursor-pointer" title="Widoczność: Przychody"><input id="chk-sekcja-przychody" type="checkbox" ${showPrzychody ? 'checked' : ''} onchange="toggleSectionState('przychody')" class="mr-1"> 📈</label>
+                <label class="flex items-center cursor-pointer" title="Widoczność: Harmonogram"><input id="chk-sekcja-harmonogram" type="checkbox" ${showHarmonogram ? 'checked' : ''} onchange="toggleSectionState('harmonogram')" class="mr-1"> ⏱️</label>
+            </div>
+        </h2>
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+    `;
+
+    currentData.opcje.forEach((op, i) => {
+        formHTML += `
+        <div class="border border-gray-200 p-5 rounded-lg ${op.rekomendowana ? 'bg-blue-50/50 border-blue-200' : 'bg-gray-50'} shadow-sm relative">
+            <h3 class="font-bold text-lg mb-3 flex items-center justify-between">
+                <span>Wariant ${i+1}</span>
+            </h3>
+
+            <label class="flex items-center space-x-2 mb-5 bg-white p-3 border rounded shadow-sm cursor-pointer hover:bg-gray-50 transition">
+                <input id="inp-${i}-rek" type="checkbox" ${op.rekomendowana ? 'checked' : ''} class="w-5 h-5 text-blue-600 rounded">
+                <span class="font-semibold text-blue-800">Ustaw jako główną rekomendację</span>
+            </label>
+
+            <div class="space-y-4">
+                <div>
+                    <input id="inp-${i}-tytul" type="text" value="${op.tytul || ''}" placeholder="Tytuł, np. Opcja 1" class="w-full border p-2 rounded text-base font-bold text-gray-700 mb-1">
+                    <input id="inp-${i}-podtytul" type="text" value="${op.podtytul || ''}" placeholder="Podtytuł" class="w-full border p-2 rounded text-sm text-gray-500">
+                </div>
+
+                <div class="sekcja-miejsca-kontener bg-white p-3 rounded border border-gray-200 ${showMiejsca ? '' : 'section-disabled'}">
+                    <div class="text-xs font-bold uppercase text-gray-500 mb-2">Miejsca postojowe</div>
+                    <div class="grid grid-cols-5 gap-2">
+                        <div><label class="text-[10px] text-gray-400">Bud A</label><input id="inp-${i}-buda" type="number" value="${op.budA ?? ''}" class="w-full border p-1 rounded text-sm text-center font-semibold"></div>
+                        <div><label class="text-[10px] text-gray-400">Bud B</label><input id="inp-${i}-budb" type="number" value="${op.budB ?? ''}" class="w-full border p-1 rounded text-sm text-center font-semibold"></div>
+                        <div><label class="text-[10px] text-gray-400">Bud C</label><input id="inp-${i}-budc" type="number" value="${op.budC ?? ''}" class="w-full border p-1 rounded text-sm text-center font-semibold"></div>
+                        <div><label class="text-[10px] text-gray-400">Bud D</label><input id="inp-${i}-budd" type="number" value="${op.budD ?? ''}" class="w-full border p-1 rounded text-sm text-center font-semibold"></div>
+                        <div><label class="text-[10px] text-gray-400">Bud E</label><input id="inp-${i}-bude" type="number" value="${op.budE ?? ''}" class="w-full border p-1 rounded text-sm text-center font-semibold"></div>
+                    </div>
+                </div>
+
+                <div class="sekcja-koszty-kontener bg-white p-3 rounded border border-gray-200 ${showKoszty ? '' : 'section-disabled'}">
+                    <div class="text-xs font-bold uppercase text-gray-500 mb-2">Koszty</div>
+                    <div class="flex gap-2 mb-2">
+                        <input id="inp-${i}-koszt-w" type="text" value="${op.koszty_wartosc || ''}" placeholder="Koszt" class="w-1/3 border p-1.5 rounded text-sm font-semibold">
+                        <label class="flex items-center space-x-2 text-xs font-medium cursor-pointer w-2/3 bg-red-50 px-2 rounded border border-red-100"><input id="inp-${i}-koszt-a" type="checkbox" ${op.koszty_alert?'checked':''} class="rounded text-red-600"><span class="text-red-700">Oznacz na czerwono</span></label>
+                    </div>
+                    <!-- ZMIANA: textarea pozwala na wpisanie wielu linii -->
+                    <textarea id="inp-${i}-koszt-o" placeholder="Komentarz do kosztów (każda nowa linia to nowy bullet)" class="w-full border p-1.5 rounded text-xs text-red-700 h-20 resize-y">${op.koszty_opis || ''}</textarea>
+                </div>
+
+                <div class="sekcja-przychody-kontener bg-white p-3 rounded border border-gray-200 ${showPrzychody ? '' : 'section-disabled'}">
+                    <div class="text-xs font-bold uppercase text-gray-500 mb-2">Przychody</div>
+                    <input id="inp-${i}-przych-w" type="text" value="${op.przychody_wartosc || ''}" placeholder="Przychód" class="w-1/3 border p-1.5 rounded text-sm font-semibold mb-2">
+                    <!-- ZMIANA: textarea pozwala na wpisanie wielu linii -->
+                    <textarea id="inp-${i}-przych-o" placeholder="Komentarz do przychodów (każda nowa linia to nowy bullet)" class="w-full border p-1.5 rounded text-xs text-green-700 h-20 resize-y">${op.przychody_opis || ''}</textarea>
+                </div>
+
+                <div class="sekcja-harmonogram-kontener bg-white p-3 rounded border border-gray-200 ${showHarmonogram ? '' : 'section-disabled'}">
+                    <div class="text-xs font-bold uppercase text-gray-500 mb-2">Harmonogram</div>
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="text-xs w-16 text-gray-500">Budowa:</span>
+                        <input id="inp-${i}-czasb-w" type="text" value="${op.czas_budowy || ''}" class="w-24 border p-1 rounded text-sm font-semibold text-center">
+                        <label class="flex items-center space-x-1 text-xs cursor-pointer"><input id="inp-${i}-czasb-a" type="checkbox" ${op.czas_budowy_alert?'checked':''} class="rounded"><span>Alert</span></label>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs w-16 text-gray-500">Komercjal.:</span>
+                        <input id="inp-${i}-czask-w" type="text" value="${op.czas_komercjalizacji || ''}" class="w-24 border p-1 rounded text-sm font-semibold text-center">
+                        <label class="flex items-center space-x-1 text-xs cursor-pointer"><input id="inp-${i}-czask-s" type="checkbox" ${op.czas_komercjalizacji_sukces?'checked':''} class="rounded text-green-600"><span>Sukces</span></label>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    });
+
+    formHTML += `</div>`;
+    document.getElementById('edit-mode').innerHTML = formHTML;
+}
+
+function renderView() {
+    if (!currentData) return;
+
+    const ikonaOst = `<svg class="w-4 h-4 mr-1 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>`;
+    const ikonaSukc = `<svg class="w-4 h-4 mr-1 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
+
+    const showMiejsca = currentData.pokaz_sekcje_miejsca !== false;
+    const showKoszty = currentData.pokaz_sekcje_koszty !== false;
+    const showPrzychody = currentData.pokaz_sekcje_przychody !== false;
+    const showHarmonogram = currentData.pokaz_sekcje_harmonogram !== false;
+
+    const getGridHtml = (vA, vB, vC, vD, vE, isRec) => {
+        const borderCss = isRec ? 'border-blue-100 bg-blue-50/40' : 'border-gray-100 bg-gray-50/50';
+        const labelCss = isRec ? 'text-blue-400' : 'text-gray-400';
+        const valActiveCss = isRec ? 'text-blue-900' : 'text-gray-800';
+        const valInactiveCss = isRec ? 'text-blue-200' : 'text-gray-300';
+
+        return `
+            <div class="grid grid-cols-5 gap-1.5 text-center mb-2">
+                <div class="border rounded py-1 ${borderCss}"><div class="text-[9px] uppercase ${labelCss}">Bud A</div><div class="font-bold text-sm ${vA>0?valActiveCss:valInactiveCss}">${vA}</div></div>
+                <div class="border rounded py-1 ${borderCss}"><div class="text-[9px] uppercase ${labelCss}">Bud B</div><div class="font-bold text-sm ${vB>0?valActiveCss:valInactiveCss}">${vB}</div></div>
+                <div class="border rounded py-1 ${borderCss}"><div class="text-[9px] uppercase ${labelCss}">Bud C</div><div class="font-bold text-sm ${vC>0?valActiveCss:valInactiveCss}">${vC}</div></div>
+                <div class="border rounded py-1 ${borderCss}"><div class="text-[9px] uppercase ${labelCss}">Bud D</div><div class="font-bold text-sm ${vD>0?valActiveCss:valInactiveCss}">${vD}</div></div>
+                <div class="border rounded py-1 ${borderCss}"><div class="text-[9px] uppercase ${labelCss}">Bud E</div><div class="font-bold text-sm ${vE>0?valActiveCss:valInactiveCss}">${vE}</div></div>
+            </div>
+        `;
+    };
+
+    const getBarHtml = (vA, vB, vC, vD, vE, suma, isRec) => {
+        if (suma === 0) return `<div class="bg-gray-200 w-full h-full"></div>`;
+        const kolory = isRec ? ['bg-blue-600', 'bg-blue-500', 'bg-blue-400', 'bg-indigo-400', 'bg-indigo-300'] : ['bg-gray-500', 'bg-gray-400', 'bg-gray-300', 'bg-slate-300', 'bg-slate-200'];
+        let html = '';
+        if(vA > 0) html += `<div class="${kolory[0]} h-full border-r border-white/20" style="width: ${((vA/suma)*100).toFixed(1)}%"></div>`;
+        if(vB > 0) html += `<div class="${kolory[1]} h-full border-r border-white/20" style="width: ${((vB/suma)*100).toFixed(1)}%"></div>`;
+        if(vC > 0) html += `<div class="${kolory[2]} h-full border-r border-white/20" style="width: ${((vC/suma)*100).toFixed(1)}%"></div>`;
+        if(vD > 0) html += `<div class="${kolory[3]} h-full border-r border-white/20" style="width: ${((vD/suma)*100).toFixed(1)}%"></div>`;
+        if(vE > 0) html += `<div class="${kolory[4]} h-full" style="width: ${((vE/suma)*100).toFixed(1)}%"></div>`;
+        return html;
+    };
+
+    // ZMIANA: Konwerter wieloliniowego tekstu na bullety lub pojedynczą linię
+    const textToBullets = (text, icon, colorCss) => {
+        if (!text) return '-';
+        const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+        if (lines.length === 1) {
+            return `<p class="text-xs ${colorCss} mt-2 flex items-start leading-tight">${icon} <span>${lines[0]}</span></p>`;
+        }
+
+        const bulletItems = lines.map(line => `<li class="ml-4 mb-1 pl-1">${line}</li>`).join('');
+        return `
+            <div class="text-xs ${colorCss} mt-2 flex items-start leading-tight">
+                ${icon}
+                <ul class="list-disc w-full m-0 p-0">${bulletItems}</ul>
+            </div>
+        `;
+    };
+
+    const kartyHTML = currentData.opcje.map(op => {
+        const isRec = op.rekomendowana;
+        const vA = op.budA || 0; const vB = op.budB || 0; const vC = op.budC || 0; const vD = op.budD || 0; const vE = op.budE || 0;
+        const sumaMiejsc = vA + vB + vC + vD + vE;
+
+        const cardCss = isRec ? 'bg-white rounded-xl shadow-xl border-2 border-blue-600 p-6 lg:p-8 flex flex-col relative z-10 transform lg:scale-105' : 'bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col mt-4 lg:mt-8';
+        const boxCss = isRec ? 'bg-blue-50 p-3 rounded border border-blue-100' : 'bg-gray-50 p-3 rounded border border-gray-100';
+
+        let cardContent = `
+            <div class="${cardCss}">
+                ${isRec ? `<div class="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-6 py-1 rounded-full text-sm font-bold tracking-wider uppercase shadow-md">Rekomendacja</div>` : ''}
+                <div class="mb-6 border-b border-gray-100 pb-4 ${isRec ? 'mt-2' : ''}">
+                    <h2 class="text-2xl font-bold ${isRec ? 'text-blue-800' : 'text-gray-700'}">${op.tytul || 'Brak tytułu'}</h2>
+                    <p class="text-sm text-gray-500 mt-1">${op.podtytul || ''}</p>
+                </div>
+                <div class="space-y-6">
+        `;
+
+        if (showMiejsca) {
+            cardContent += `
+                <div>
+                    <div class="text-sm font-semibold text-gray-600 mb-2 flex justify-between items-end">
+                        <span>Rozbicie (Miejsca)</span>
+                        <span class="font-bold ${isRec ? 'text-blue-900 text-xl' : 'text-gray-900 text-lg'} leading-none" title="Suma miejsc">Σ ${sumaMiejsc}</span>
+                    </div>
+                    ${getGridHtml(vA, vB, vC, vD, vE, isRec)}
+                    <div class="flex h-1.5 rounded-full overflow-hidden opacity-80 w-full mt-1">
+                        ${getBarHtml(vA, vB, vC, vD, vE, sumaMiejsc, isRec)}
+                    </div>
+                </div>
+            `;
+        }
+
+        if (showKoszty) {
+            cardContent += `
+                <div class="${boxCss}">
+                    <div class="text-sm font-semibold text-gray-600 mb-1 flex justify-between">
+                        <span>Koszty budowy</span>
+                        <span class="font-bold ${op.koszty_alert ? 'text-red-600' : 'text-gray-900'} ${isRec ? 'text-lg' : ''}">${op.koszty_wartosc || '-'}</span>
+                    </div>
+                    ${textToBullets(op.koszty_opis, ikonaOst, 'text-red-700')}
+                </div>
+            `;
+        }
+
+        if (showPrzychody) {
+            cardContent += `
+                <div class="${boxCss}">
+                    <div class="text-sm font-semibold text-gray-600 mb-1 flex justify-between">
+                        <span>Szac. przychód ze sprzedaży</span>
+                        <span class="font-bold text-gray-900 ${isRec ? 'text-lg' : ''}">${op.przychody_wartosc || '-'}</span>
+                    </div>
+                    ${textToBullets(op.przychody_opis, ikonaSukc, 'text-green-700')}
+                </div>
+            `;
+        }
+
+        if (showHarmonogram) {
+            cardContent += `
+                <div class="grid grid-cols-2 gap-4 border-t ${isRec ? 'border-blue-100' : 'border-gray-100'} pt-4">
+                    <div>
+                        <div class="text-xs text-gray-500">Czas budowy</div>
+                        <div class="${isRec ? 'text-xl' : 'text-lg'} font-bold ${op.czas_budowy_alert ? 'text-red-700' : 'text-gray-900'}">${op.czas_budowy || '-'}</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-gray-500">Komercjalizacja</div>
+                        <div class="${isRec ? 'text-xl' : 'text-lg'} font-bold ${op.czas_komercjalizacji_sukces ? 'text-green-700' : 'text-gray-800'}">${op.czas_komercjalizacji || '-'}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        cardContent += `</div></div>`;
+        return cardContent;
+    }).join('');
+
+    const layoutHTML = `
+        <div class="mb-10 text-center">
+            <h1 class="text-3xl md:text-4xl font-bold mb-6 text-gray-900">${currentData.naglowek || ''}</h1>
+            <div class="inline-block bg-blue-50 border border-blue-200 rounded-lg p-5 md:p-6 text-left max-w-4xl shadow-sm">
+                <p class="text-lg text-gray-800 leading-relaxed">
+                    <strong class="text-blue-800 font-bold uppercase tracking-wide mr-2">${currentData.bluf_wyroznienie || ''}</strong>
+                    ${currentData.bluf_tekst || ''}
+                </p>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-start pb-12">
+            ${kartyHTML}
+        </div>
+    `;
+
+    document.getElementById('view-mode').innerHTML = layoutHTML;
+}
+</script>
+</body>
+</html>
