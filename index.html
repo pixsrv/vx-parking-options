@@ -3,87 +3,93 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>One-pager Zarząd - Silnik Wizualizacji (v5)</title>
+    <title>One-pager Zarząd - Silnik Wizualizacji</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @media print {
-            body { background-color: white; }
-            .no-print { display: none !important; }
-            .shadow-xl, .shadow-sm { box-shadow: none; }
-            .border-gray-200, .border-blue-100 { border-color: #e5e7eb !important; }
-            .bg-blue-50 { background-color: #f9fafb !important; }
-        }
         .section-disabled { opacity: 0.5; pointer-events: none; filter: grayscale(100%); }
+
+        /*
+         * Minimalistyczny blok CSS dla druku.
+         * Całą logikę upychania na A4 załatwiamy poniżej w klasach HTML (print:scale, print:gap).
+         */
+        @media print {
+            @page { size: A4 landscape; margin: 10mm; }
+            body {
+                background-color: white !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            .no-print { display: none !important; }
+            /* Zbijamy cienie i korygujemy obramowanie rekomendacji */
+            .shadow-xl, .shadow-sm, .shadow-md, .shadow-inner { box-shadow: none !important; }
+            .border-blue-600 { border-width: 2px !important; border-color: #2563eb !important; }
+        }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-800 font-sans p-4 md:p-8 min-h-screen flex flex-col relative" onclick="closeDropdown(event)">
+<body class="bg-gray-50 text-gray-800 font-sans min-h-screen flex flex-col relative print:bg-white" onclick="closeDropdown(event)">
 
-    <!-- Subtelny Panel Nawigacyjny (Górny prawy róg) -->
-    <div class="max-w-7xl mx-auto w-full flex justify-end items-center gap-4 relative z-50 no-print">
+    <!-- Panel sterowania (niewidoczny w druku) -->
+    <div class="max-w-7xl mx-auto w-full p-4 md:p-8 flex justify-end items-center gap-4 relative z-50 no-print">
 
-        <!-- Nazwa pliku -->
         <span id="file-name" class="text-sm font-medium text-gray-500 hidden">Brak pliku</span>
 
-        <!-- Przycisk Zapisz (widoczny tylko w trybie edycji) -->
         <button id="btn-save" onclick="saveDataToFile()" class="hidden bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-medium transition shadow-sm">
             💾 Zapisz jako nowy .json
         </button>
 
-        <!-- Dropdown Menu (3 kropki) -->
         <div class="relative inline-block text-left">
-            <button onclick="toggleDropdown(event)" class="text-gray-500 hover:text-gray-700 p-2 rounded-full hover:bg-gray-200 focus:outline-none transition">
+            <button onclick="toggleDropdown(event)" class="text-gray-500 hover:text-gray-700 p-2 rounded-full hover:bg-gray-200 focus:outline-none transition bg-white border border-gray-200 shadow-sm">
                 <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"></path>
                 </svg>
             </button>
 
-            <!-- Menu opcji -->
             <div id="dropdown-menu" class="hidden origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none">
-                <div class="py-1" role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
-                    <!-- Ukryty input do ładowania pliku -->
-                    <input type="file" id="file-upload" accept=".json" class="hidden" onchange="loadFromFile(event)">
+                <div class="py-1" role="menu" aria-orientation="vertical">
 
+                    <input type="file" id="file-upload" accept=".json" class="hidden" onchange="loadFromFile(event)">
                     <a href="#" onclick="document.getElementById('file-upload').click(); event.preventDefault();" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900" role="menuitem">
                         📂 Wczytaj plik JSON
                     </a>
-
                     <a href="#" id="menu-btn-edit" onclick="toggleMode(); event.preventDefault();" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 hidden" role="menuitem">
                         ✏️ Edytuj dokument
+                    </a>
+                    <a href="#" id="menu-btn-print" onclick="window.print(); event.preventDefault();" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 hidden border-t border-gray-100" role="menuitem">
+                        🖨️ Drukuj do PDF (A4)
                     </a>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Kontenery na widoki -->
-    <div id="view-mode" class="max-w-7xl mx-auto w-full flex-grow">
-        <!-- Ekran powitalny -->
-        <div class="flex flex-col items-center justify-center h-64 border-2 border-dashed border-gray-300 rounded-xl bg-white text-gray-400 mt-12">
+    <!-- Główny kontener widoku. print:scale-85 odpowiada za upchnięcie całości na A4 -->
+    <div id="view-mode" class="w-full flex-grow mx-auto max-w-7xl p-4 md:p-8 print:p-0 print:max-w-none print:transform print:scale-[0.85] print:origin-top">
+
+        <!-- Ekran startowy -->
+        <div class="flex flex-col items-center justify-center h-64 border-2 border-dashed border-gray-300 rounded-xl bg-white text-gray-400 mt-12 no-print">
             <svg class="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
             <p class="text-lg font-medium">Kliknij w menu (⋮) w prawym górnym rogu i wczytaj plik JSON.</p>
         </div>
     </div>
 
-    <div id="edit-mode" class="max-w-7xl mx-auto w-full hidden bg-white p-6 rounded-lg shadow-sm border border-gray-200 mt-8"></div>
+    <div id="edit-mode" class="max-w-7xl mx-auto w-full hidden bg-white p-6 rounded-lg shadow-sm border border-gray-200 mt-8 mb-12"></div>
 
 <script>
 let currentData = null;
 let isEditMode = false;
 let currentFileName = "nowe_warianty.json";
 
-// --- Obsługa Dropdown ---
 function toggleDropdown(event) {
-    event.stopPropagation(); // Zapobiega natychmiastowemu zamknięciu przez kliknięcie w body
+    event.stopPropagation();
     document.getElementById('dropdown-menu').classList.toggle('hidden');
 }
 
 function closeDropdown(event) {
     const dropdown = document.getElementById('dropdown-menu');
-    if (!dropdown.classList.contains('hidden')) {
+    if (dropdown && !dropdown.classList.contains('hidden')) {
         dropdown.classList.add('hidden');
     }
 }
-// ------------------------
 
 function loadFromFile(event) {
     const file = event.target.files[0];
@@ -98,13 +104,12 @@ function loadFromFile(event) {
     reader.onload = function(e) {
         try {
             currentData = JSON.parse(e.target.result);
-
-            // Pokaż opcję edycji w menu po poprawnym załadowaniu
             document.getElementById('menu-btn-edit').classList.remove('hidden');
+            document.getElementById('menu-btn-print').classList.remove('hidden');
 
             if (isEditMode) toggleMode();
             renderView();
-            closeDropdown(new Event('click')); // Zamknij menu po załadowaniu
+            closeDropdown(new Event('click'));
         } catch (error) {
             console.error("Błąd parsowania JSON:", error);
             alert("Błąd: Plik nie jest prawidłowym formatem JSON narzędzia.");
@@ -159,7 +164,7 @@ function saveDataToFile() {
     downloadAnchorNode.remove();
 
     renderView();
-    toggleMode(); // Wyjdź z trybu edycji po zapisie
+    toggleMode();
 }
 
 function toggleMode() {
@@ -167,15 +172,13 @@ function toggleMode() {
     document.getElementById('view-mode').classList.toggle('hidden', isEditMode);
     document.getElementById('edit-mode').classList.toggle('hidden', !isEditMode);
 
-    // Przycisk "Zapisz" widoczny tylko podczas edycji
     document.getElementById('btn-save').classList.toggle('hidden', !isEditMode);
+    document.getElementById('menu-btn-print').classList.toggle('hidden', isEditMode);
 
-    // Zmiana tekstu w menu
     const menuBtnEdit = document.getElementById('menu-btn-edit');
     menuBtnEdit.innerHTML = isEditMode ? '❌ Anuluj edycję' : '✏️ Edytuj dokument';
 
-    closeDropdown(new Event('click')); // Zamknij menu
-
+    closeDropdown(new Event('click'));
     if (isEditMode) renderEditForm();
 }
 
@@ -198,7 +201,7 @@ function renderEditForm() {
 
     let formHTML = `
         <h2 class="text-2xl font-bold mb-4 text-gray-800 border-b pb-2 flex justify-between items-center">
-            Informacje Główne (Dokument)
+            Informacje Główne
         </h2>
         <div class="grid grid-cols-1 gap-4 mb-8 bg-gray-50 p-4 rounded border">
             <label class="block">
@@ -340,9 +343,9 @@ function renderView() {
             return `<p class="text-xs ${colorCss} mt-2 flex items-start leading-tight">${icon} <span>${lines[0]}</span></p>`;
         }
 
-        const bulletItems = lines.map(line => `<li class="ml-4 mb-1 pl-1">${line}</li>`).join('');
+        const bulletItems = lines.map(line => `<li class="ml-4 mb-1 pl-1 leading-tight">${line}</li>`).join('');
         return `
-            <div class="text-xs ${colorCss} mt-2 flex items-start leading-tight">
+            <div class="text-xs ${colorCss} mt-2 flex items-start">
                 ${icon}
                 <ul class="list-disc w-full m-0 p-0">${bulletItems}</ul>
             </div>
@@ -354,25 +357,29 @@ function renderView() {
         const vA = op.budA || 0; const vB = op.budB || 0; const vC = op.budC || 0; const vD = op.budD || 0; const vE = op.budE || 0;
         const sumaMiejsc = vA + vB + vC + vD + vE;
 
-        const cardCss = isRec ? 'bg-white rounded-xl shadow-xl border-2 border-blue-600 p-6 lg:p-8 flex flex-col relative z-10 transform lg:scale-105' : 'bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col mt-4 lg:mt-8';
+        // Klasy print: decydują o ułożeniu obok siebie w trybie druku (grid, col-span)
+        const cardCss = isRec
+            ? 'bg-white rounded-xl shadow-xl border-2 border-blue-600 p-4 lg:p-6 flex flex-col relative z-10 transform scale-105 print:transform-none print:scale-100 print:col-span-1 print:h-full'
+            : 'bg-white rounded-xl shadow-sm border border-gray-200 p-4 lg:p-6 flex flex-col mt-4 lg:mt-8 print:mt-0 print:col-span-1 print:h-full';
+
         const boxCss = isRec ? 'bg-blue-50 p-3 rounded border border-blue-100' : 'bg-gray-50 p-3 rounded border border-gray-100';
 
         let cardContent = `
             <div class="${cardCss}">
-                ${isRec ? `<div class="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-6 py-1 rounded-full text-sm font-bold tracking-wider uppercase shadow-md">Rekomendacja</div>` : ''}
-                <div class="mb-6 border-b border-gray-100 pb-4 ${isRec ? 'mt-2' : ''}">
-                    <h2 class="text-2xl font-bold ${isRec ? 'text-blue-800' : 'text-gray-700'}">${op.tytul || 'Brak tytułu'}</h2>
-                    <p class="text-sm text-gray-500 mt-1">${op.podtytul || ''}</p>
+                ${isRec ? `<div class="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-4 py-1 rounded-full text-xs font-bold tracking-wider uppercase shadow-md print:px-2 print:text-[10px]">Rekomendacja</div>` : ''}
+                <div class="mb-4 border-b border-gray-100 pb-3 ${isRec ? 'mt-2' : ''}">
+                    <h2 class="text-xl font-bold ${isRec ? 'text-blue-800' : 'text-gray-700'} leading-tight">${op.tytul || 'Brak tytułu'}</h2>
+                    <p class="text-xs text-gray-500 mt-1">${op.podtytul || ''}</p>
                 </div>
-                <div class="space-y-6">
+                <div class="space-y-4 flex-grow">
         `;
 
         if (showMiejsca) {
             cardContent += `
                 <div>
-                    <div class="text-sm font-semibold text-gray-600 mb-2 flex justify-between items-end">
+                    <div class="text-xs font-semibold text-gray-600 mb-1.5 flex justify-between items-end">
                         <span>Rozbicie (Miejsca)</span>
-                        <span class="font-bold ${isRec ? 'text-blue-900 text-xl' : 'text-gray-900 text-lg'} leading-none" title="Suma miejsc">Σ ${sumaMiejsc}</span>
+                        <span class="font-bold ${isRec ? 'text-blue-900 text-lg' : 'text-gray-900 text-base'} leading-none" title="Suma miejsc">Σ ${sumaMiejsc}</span>
                     </div>
                     ${getGridHtml(vA, vB, vC, vD, vE, isRec)}
                     <div class="flex h-1.5 rounded-full overflow-hidden opacity-80 w-full mt-1">
@@ -385,9 +392,9 @@ function renderView() {
         if (showKoszty) {
             cardContent += `
                 <div class="${boxCss}">
-                    <div class="text-sm font-semibold text-gray-600 mb-1 flex justify-between">
+                    <div class="text-xs font-semibold text-gray-600 mb-1 flex justify-between">
                         <span>Koszty budowy</span>
-                        <span class="font-bold ${op.koszty_alert ? 'text-red-600' : 'text-gray-900'} ${isRec ? 'text-lg' : ''}">${op.koszty_wartosc || '-'}</span>
+                        <span class="font-bold ${op.koszty_alert ? 'text-red-600' : 'text-gray-900'} ${isRec ? 'text-base' : ''}">${op.koszty_wartosc || '-'}</span>
                     </div>
                     ${textToBullets(op.koszty_opis, ikonaOst, 'text-red-700')}
                 </div>
@@ -397,9 +404,9 @@ function renderView() {
         if (showPrzychody) {
             cardContent += `
                 <div class="${boxCss}">
-                    <div class="text-sm font-semibold text-gray-600 mb-1 flex justify-between">
+                    <div class="text-xs font-semibold text-gray-600 mb-1 flex justify-between">
                         <span>Szac. przychód ze sprzedaży</span>
-                        <span class="font-bold text-gray-900 ${isRec ? 'text-lg' : ''}">${op.przychody_wartosc || '-'}</span>
+                        <span class="font-bold text-gray-900 ${isRec ? 'text-base' : ''}">${op.przychody_wartosc || '-'}</span>
                     </div>
                     ${textToBullets(op.przychody_opis, ikonaSukc, 'text-green-700')}
                 </div>
@@ -408,14 +415,14 @@ function renderView() {
 
         if (showHarmonogram) {
             cardContent += `
-                <div class="grid grid-cols-2 gap-4 border-t ${isRec ? 'border-blue-100' : 'border-gray-100'} pt-4">
+                <div class="grid grid-cols-2 gap-2 border-t ${isRec ? 'border-blue-100' : 'border-gray-100'} pt-3 mt-auto">
                     <div>
-                        <div class="text-xs text-gray-500">Czas budowy</div>
-                        <div class="${isRec ? 'text-xl' : 'text-lg'} font-bold ${op.czas_budowy_alert ? 'text-red-700' : 'text-gray-900'}">${op.czas_budowy || '-'}</div>
+                        <div class="text-[10px] uppercase font-semibold text-gray-500">Czas budowy</div>
+                        <div class="${isRec ? 'text-lg' : 'text-base'} font-bold ${op.czas_budowy_alert ? 'text-red-700' : 'text-gray-900'}">${op.czas_budowy || '-'}</div>
                     </div>
                     <div>
-                        <div class="text-xs text-gray-500">Komercjalizacja</div>
-                        <div class="${isRec ? 'text-xl' : 'text-lg'} font-bold ${op.czas_komercjalizacji_sukces ? 'text-green-700' : 'text-gray-800'}">${op.czas_komercjalizacji || '-'}</div>
+                        <div class="text-[10px] uppercase font-semibold text-gray-500">Komercjalizacja</div>
+                        <div class="${isRec ? 'text-lg' : 'text-base'} font-bold ${op.czas_komercjalizacji_sukces ? 'text-green-700' : 'text-gray-800'}">${op.czas_komercjalizacji || '-'}</div>
                     </div>
                 </div>
             `;
@@ -425,18 +432,18 @@ function renderView() {
         return cardContent;
     }).join('');
 
-    // ZMIANA: Zwiększone marginesy wokół nagłówka (pt-8, mb-12)
+    // Dodano klasy print: wymuszające ułożenie w 3 kolumnach przy drukowaniu
     const layoutHTML = `
-        <div class="mb-12 pt-8 text-center">
-            <h1 class="text-3xl md:text-4xl font-bold mb-8 text-gray-900">${currentData.naglowek || ''}</h1>
-            <div class="inline-block bg-blue-50 border border-blue-200 rounded-lg p-5 md:p-6 text-left max-w-4xl shadow-sm">
-                <p class="text-lg text-gray-800 leading-relaxed">
+        <div class="mb-8 pt-4 text-center print:mb-4 print:pt-0">
+            <h1 class="text-3xl md:text-4xl font-bold mb-6 text-gray-900 print:text-2xl print:mb-4">${currentData.naglowek || ''}</h1>
+            <div class="inline-block bg-blue-50 border border-blue-200 rounded-lg p-5 text-left max-w-4xl print:p-3 print:max-w-none print:w-full">
+                <p class="text-base text-gray-800 leading-snug">
                     <strong class="text-blue-800 font-bold uppercase tracking-wide mr-2">${currentData.bluf_wyroznienie || ''}</strong>
                     ${currentData.bluf_tekst || ''}
                 </p>
             </div>
         </div>
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-start pb-12">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch pb-8 print:grid-cols-3 print:gap-4 print:pb-0">
             ${kartyHTML}
         </div>
     `;
