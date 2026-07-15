@@ -191,6 +191,18 @@ function toggleSectionState(sectionName) {
     });
 }
 
+// Funkcja aktualizująca sumę miejsc postojowych w locie
+function updateSum(index) {
+    const vA = parseInt(document.getElementById(`inp-${index}-buda`).value) || 0;
+    const vB = parseInt(document.getElementById(`inp-${index}-budb`).value) || 0;
+    const vC = parseInt(document.getElementById(`inp-${index}-budc`).value) || 0;
+    const vD = parseInt(document.getElementById(`inp-${index}-budd`).value) || 0;
+    const vE = parseInt(document.getElementById(`inp-${index}-bude`).value) || 0;
+    const sum = vA + vB + vC + vD + vE;
+
+    document.getElementById(`sum-display-${index}`).innerText = `Σ ${sum}`;
+}
+
 function renderEditForm() {
     if (!currentData) return;
 
@@ -231,6 +243,9 @@ function renderEditForm() {
     `;
 
     currentData.opcje.forEach((op, i) => {
+        const vA = op.budA || 0; const vB = op.budB || 0; const vC = op.budC || 0; const vD = op.budD || 0; const vE = op.budE || 0;
+        const sumaMiejsc = vA + vB + vC + vD + vE;
+
         formHTML += `
         <div class="border border-gray-200 p-5 rounded-lg ${op.rekomendowana ? 'bg-blue-50/50 border-blue-200' : 'bg-gray-50'} shadow-sm relative">
             <h3 class="font-bold text-lg mb-3 flex items-center justify-between">
@@ -249,13 +264,16 @@ function renderEditForm() {
                 </div>
 
                 <div class="sekcja-miejsca-kontener bg-white p-3 rounded border border-gray-200 ${showMiejsca ? '' : 'section-disabled'}">
-                    <div class="text-xs font-bold uppercase text-gray-500 mb-2">Miejsca postojowe</div>
+                    <div class="text-xs font-bold uppercase text-gray-500 mb-2 flex justify-between items-center">
+                        <span>Miejsca postojowe</span>
+                        <span id="sum-display-${i}" class="text-sm font-bold ${op.rekomendowana ? 'text-blue-900' : 'text-gray-700'} bg-gray-100 px-2 py-0.5 rounded border border-gray-200">Σ ${sumaMiejsc}</span>
+                    </div>
                     <div class="grid grid-cols-5 gap-2">
-                        <div><label class="text-[10px] text-gray-400">Bud A</label><input id="inp-${i}-buda" type="number" value="${op.budA ?? ''}" class="w-full border p-1 rounded text-sm text-center font-semibold"></div>
-                        <div><label class="text-[10px] text-gray-400">Bud B</label><input id="inp-${i}-budb" type="number" value="${op.budB ?? ''}" class="w-full border p-1 rounded text-sm text-center font-semibold"></div>
-                        <div><label class="text-[10px] text-gray-400">Bud C</label><input id="inp-${i}-budc" type="number" value="${op.budC ?? ''}" class="w-full border p-1 rounded text-sm text-center font-semibold"></div>
-                        <div><label class="text-[10px] text-gray-400">Bud D</label><input id="inp-${i}-budd" type="number" value="${op.budD ?? ''}" class="w-full border p-1 rounded text-sm text-center font-semibold"></div>
-                        <div><label class="text-[10px] text-gray-400">Bud E</label><input id="inp-${i}-bude" type="number" value="${op.budE ?? ''}" class="w-full border p-1 rounded text-sm text-center font-semibold"></div>
+                        <div><label class="text-[10px] text-gray-400">Bud A</label><input id="inp-${i}-buda" type="number" value="${op.budA ?? ''}" oninput="updateSum(${i})" class="w-full border p-1 rounded text-sm text-center font-semibold"></div>
+                        <div><label class="text-[10px] text-gray-400">Bud B</label><input id="inp-${i}-budb" type="number" value="${op.budB ?? ''}" oninput="updateSum(${i})" class="w-full border p-1 rounded text-sm text-center font-semibold"></div>
+                        <div><label class="text-[10px] text-gray-400">Bud C</label><input id="inp-${i}-budc" type="number" value="${op.budC ?? ''}" oninput="updateSum(${i})" class="w-full border p-1 rounded text-sm text-center font-semibold"></div>
+                        <div><label class="text-[10px] text-gray-400">Bud D</label><input id="inp-${i}-budd" type="number" value="${op.budD ?? ''}" oninput="updateSum(${i})" class="w-full border p-1 rounded text-sm text-center font-semibold"></div>
+                        <div><label class="text-[10px] text-gray-400">Bud E</label><input id="inp-${i}-bude" type="number" value="${op.budE ?? ''}" oninput="updateSum(${i})" class="w-full border p-1 rounded text-sm text-center font-semibold"></div>
                     </div>
                 </div>
 
