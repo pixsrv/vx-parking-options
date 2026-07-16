@@ -9,27 +9,19 @@
         .section-disabled { opacity: 0.5; pointer-events: none; filter: grayscale(100%); }
 
         @media print {
-            /* Twarde zapobieganie marginesom i ucinaniu na A4 */
-            @page { size: A4 landscape; margin: 8mm; }
-            body, html {
+            @page { size: A4 landscape; margin: 10mm; }
+            body {
                 background-color: white !important;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
-                height: auto !important;
             }
             .no-print { display: none !important; }
             .shadow-xl, .shadow-sm, .shadow-md, .shadow-inner { box-shadow: none !important; }
             .border-blue-600 { border-width: 2px !important; border-color: #2563eb !important; }
-
-            /* Bezwzględny zakaz łamania stron wewnątrz kart z wariantami */
-            .print-card {
-                page-break-inside: avoid !important;
-                break-inside: avoid !important;
-            }
         }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-800 font-sans min-h-screen flex flex-col relative print:bg-white print:min-h-0" onclick="closeDropdown(event)">
+<body class="bg-gray-50 text-gray-800 font-sans min-h-screen flex flex-col relative print:bg-white" onclick="closeDropdown(event)">
 
     <!-- Panel sterowania -->
     <div class="max-w-7xl mx-auto w-full p-4 md:p-8 flex justify-end items-center gap-4 relative z-50 no-print">
@@ -65,12 +57,16 @@
         </div>
     </div>
 
-    <!-- Pusty kontener na widok -->
+    <!-- Widok główny -->
     <div id="view-mode" class="w-full flex-grow flex flex-col items-center">
-        <!-- Ekran startowy -->
-        <div class="flex flex-col items-center justify-center h-64 border-2 border-dashed border-gray-300 rounded-xl bg-white text-gray-400 mt-12 w-full max-w-4xl no-print mx-4">
-            <svg class="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-            <p class="text-lg font-medium">Kliknij w menu (⋮) w prawym górnym rogu i wczytaj plik JSON.</p>
+        <!-- Ekran startowy z guzikiem -->
+        <div class="flex flex-col items-center justify-center h-72 border-2 border-dashed border-gray-300 rounded-xl bg-white text-gray-400 mt-12 w-full max-w-2xl no-print mx-4 p-8 text-center">
+            <svg class="w-16 h-16 mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            <p class="text-lg font-medium mb-6">Wczytaj plik JSON, aby wygenerować dokument.</p>
+            <label class="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-bold shadow-md transition">
+                Wczytaj plik JSON
+                <input type="file" accept=".json" class="hidden" onchange="loadFromFile(event)">
+            </label>
         </div>
     </div>
 
@@ -311,16 +307,16 @@ function renderEditForm() {
                 <div class="sekcja-koszty-kontener bg-white p-2.5 rounded border border-gray-200 ${showKoszty ? '' : 'section-disabled'}">
                     <div class="text-[11px] font-bold uppercase text-gray-500 mb-2">Koszty</div>
                     <div class="flex gap-2 mb-2">
-                        <input id="inp-${i}-koszt-w" type="text" value="${op.koszty_wartosc || ''}" placeholder="Koszt" class="w-1/3 border p-1 rounded text-sm font-semibold">
-                        <label class="flex items-center justify-center space-x-1 text-[10px] font-medium cursor-pointer w-2/3 bg-red-50 rounded border border-red-100"><input id="inp-${i}-koszt-a" type="checkbox" ${op.koszty_alert?'checked':''} class="rounded text-red-600"><span class="text-red-700">Kolor czerwony</span></label>
+                        <input id="inp-${i}-koszt-w" type="text" value="${op.koszty_wartosc || ''}" placeholder="Koszt" class="w-1/3 border p-1.5 rounded text-sm font-semibold">
+                        <label class="flex items-center justify-center space-x-1 text-[10px] font-medium cursor-pointer w-2/3 bg-red-50 px-2 rounded border border-red-100"><input id="inp-${i}-koszt-a" type="checkbox" ${op.koszty_alert?'checked':''} class="rounded text-red-600"><span class="text-red-700">Kolor czerwony</span></label>
                     </div>
-                    <textarea id="inp-${i}-koszt-o" placeholder="Komentarz do kosztów (każda nowa linia to nowy bullet)" class="w-full border p-1.5 rounded text-xs text-red-700 h-16 resize-y">${op.koszty_opis || ''}</textarea>
+                    <textarea id="inp-${i}-koszt-o" placeholder="Komentarz do kosztów" class="w-full border p-1.5 rounded text-xs text-red-700 h-16 resize-y">${op.koszty_opis || ''}</textarea>
                 </div>
 
                 <div class="sekcja-przychody-kontener bg-white p-2.5 rounded border border-gray-200 ${showPrzychody ? '' : 'section-disabled'}">
                     <div class="text-[11px] font-bold uppercase text-gray-500 mb-2">Przychody</div>
                     <input id="inp-${i}-przych-w" type="text" value="${op.przychody_wartosc || ''}" placeholder="Przychód" class="w-1/3 border p-1 rounded text-sm font-semibold mb-2">
-                    <textarea id="inp-${i}-przych-o" placeholder="Komentarz do przychodów (każda nowa linia to nowy bullet)" class="w-full border p-1.5 rounded text-xs text-green-700 h-16 resize-y">${op.przychody_opis || ''}</textarea>
+                    <textarea id="inp-${i}-przych-o" placeholder="Komentarz do przychodów" class="w-full border p-1.5 rounded text-xs text-green-700 h-16 resize-y">${op.przychody_opis || ''}</textarea>
                 </div>
 
                 <div class="sekcja-harmonogram-kontener bg-white p-2.5 rounded border border-gray-200 mt-auto ${showHarmonogram ? '' : 'section-disabled'}">
@@ -358,14 +354,13 @@ function renderView() {
     const visibleOptions = currentData.opcje.filter(op => op.widoczna !== false);
     const colCount = visibleOptions.length || 1;
 
-    // ZMIANA: Usunięcie 'transform scale', zastąpienie 'zoom' do dynamicznego upychania na A4.
     let gridCols = 'lg:grid-cols-3 print:grid-cols-3';
-    let printScale = 'print:[zoom:0.85]';
+    let printZoom = 'print:[zoom:0.85]';
     let gapClass = 'gap-6 print:gap-4';
 
-    if (colCount === 1) { gridCols = 'lg:grid-cols-1 print:grid-cols-1'; printScale = 'print:[zoom:0.95]'; }
-    else if (colCount === 2) { gridCols = 'lg:grid-cols-2 print:grid-cols-2'; printScale = 'print:[zoom:0.90]'; }
-    else if (colCount === 4) { gridCols = 'lg:grid-cols-4 print:grid-cols-4'; printScale = 'print:[zoom:0.71]'; gapClass = 'gap-4 print:gap-3'; }
+    if (colCount === 1) { gridCols = 'lg:grid-cols-1 print:grid-cols-1'; printZoom = 'print:[zoom:0.95]'; }
+    else if (colCount === 2) { gridCols = 'lg:grid-cols-2 print:grid-cols-2'; printZoom = 'print:[zoom:0.90]'; }
+    else if (colCount === 4) { gridCols = 'lg:grid-cols-4 print:grid-cols-4'; printZoom = 'print:[zoom:0.71]'; gapClass = 'gap-4 print:gap-3'; }
 
     const getGridHtml = (vA, vB, vC, vD, vE, isRec) => {
         const borderCss = isRec ? 'border-blue-100 bg-blue-50/40' : 'border-gray-100 bg-gray-50/50';
@@ -419,10 +414,9 @@ function renderView() {
         const sumaMiejsc = vA + vB + vC + vD + vE;
 
         const paddingClass = colCount === 4 ? 'p-3 lg:p-4' : 'p-4 lg:p-6';
-
         const cardCss = isRec
-            ? `print-card bg-white rounded-xl shadow-xl border-2 border-blue-600 ${paddingClass} flex flex-col relative z-10 transform scale-105 print:transform-none print:col-span-1 print:h-full`
-            : `print-card bg-white rounded-xl shadow-sm border border-gray-200 ${paddingClass} flex flex-col mt-4 lg:mt-8 print:mt-0 print:col-span-1 print:h-full`;
+            ? `bg-white rounded-xl shadow-xl border-2 border-blue-600 ${paddingClass} flex flex-col relative z-10 transform scale-105 print:transform-none print:scale-100 print:col-span-1 print:h-full`
+            : `bg-white rounded-xl shadow-sm border border-gray-200 ${paddingClass} flex flex-col mt-4 lg:mt-8 print:mt-0 print:col-span-1 print:h-full`;
 
         const boxCss = isRec ? 'bg-blue-50 p-3 rounded border border-blue-100' : 'bg-gray-50 p-3 rounded border border-gray-100';
 
@@ -495,9 +489,9 @@ function renderView() {
     }).join('');
 
     const layoutHTML = `
-        <div class="w-full max-w-7xl px-4 md:px-8 print:p-0 print:max-w-none ${printScale}">
+        <div class="w-full max-w-7xl px-4 md:px-8 print:p-0 print:max-w-none ${printZoom}">
             <div class="mb-8 pt-4 text-center print:mb-4 print:pt-0">
-                <h1 class="text-3xl md:text-4xl font-bold mb-6 text-gray-900 print:text-2xl print:mb-3">${currentData.naglowek || ''}</h1>
+                <h1 class="text-3xl md:text-4xl font-bold mb-6 text-gray-900 print:text-2xl print:mb-4">${currentData.naglowek || ''}</h1>
                 <div class="inline-block bg-blue-50 border border-blue-200 rounded-lg p-5 text-left max-w-4xl print:p-3 print:max-w-none print:w-full">
                     <p class="text-base text-gray-800 leading-snug">
                         <strong class="text-blue-800 font-bold uppercase tracking-wide mr-2">${currentData.bluf_wyroznienie || ''}</strong>
