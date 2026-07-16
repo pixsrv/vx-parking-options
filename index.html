@@ -8,27 +8,30 @@
     <style>
         .section-disabled { opacity: 0.5; pointer-events: none; filter: grayscale(100%); }
 
-        /*
-         * Minimalistyczny blok CSS dla druku.
-         * Całą logikę upychania na A4 załatwiamy poniżej w klasach HTML (print:scale, print:gap).
-         */
         @media print {
-            @page { size: A4 landscape; margin: 10mm; }
-            body {
+            /* Twarde zapobieganie marginesom i ucinaniu na A4 */
+            @page { size: A4 landscape; margin: 8mm; }
+            body, html {
                 background-color: white !important;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
+                height: auto !important;
             }
             .no-print { display: none !important; }
-            /* Zbijamy cienie i korygujemy obramowanie rekomendacji */
             .shadow-xl, .shadow-sm, .shadow-md, .shadow-inner { box-shadow: none !important; }
             .border-blue-600 { border-width: 2px !important; border-color: #2563eb !important; }
+
+            /* Bezwzględny zakaz łamania stron wewnątrz kart z wariantami */
+            .print-card {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
         }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-800 font-sans min-h-screen flex flex-col relative print:bg-white" onclick="closeDropdown(event)">
+<body class="bg-gray-50 text-gray-800 font-sans min-h-screen flex flex-col relative print:bg-white print:min-h-0" onclick="closeDropdown(event)">
 
-    <!-- Panel sterowania (niewidoczny w druku) -->
+    <!-- Panel sterowania -->
     <div class="max-w-7xl mx-auto w-full p-4 md:p-8 flex justify-end items-center gap-4 relative z-50 no-print">
 
         <span id="file-name" class="text-sm font-medium text-gray-500 hidden">Brak pliku</span>
@@ -62,17 +65,16 @@
         </div>
     </div>
 
-    <!-- Główny kontener widoku. print:scale-85 odpowiada za upchnięcie całości na A4 -->
-    <div id="view-mode" class="w-full flex-grow mx-auto max-w-7xl p-4 md:p-8 print:p-0 print:max-w-none print:transform print:scale-[0.85] print:origin-top">
-
+    <!-- Pusty kontener na widok -->
+    <div id="view-mode" class="w-full flex-grow flex flex-col items-center">
         <!-- Ekran startowy -->
-        <div class="flex flex-col items-center justify-center h-64 border-2 border-dashed border-gray-300 rounded-xl bg-white text-gray-400 mt-12 no-print">
+        <div class="flex flex-col items-center justify-center h-64 border-2 border-dashed border-gray-300 rounded-xl bg-white text-gray-400 mt-12 w-full max-w-4xl no-print mx-4">
             <svg class="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
             <p class="text-lg font-medium">Kliknij w menu (⋮) w prawym górnym rogu i wczytaj plik JSON.</p>
         </div>
     </div>
 
-    <div id="edit-mode" class="max-w-7xl mx-auto w-full hidden bg-white p-6 rounded-lg shadow-sm border border-gray-200 mt-8 mb-12"></div>
+    <div id="edit-mode" class="max-w-[95%] mx-auto w-full hidden bg-white p-6 rounded-lg shadow-sm border border-gray-200 mt-8 mb-12"></div>
 
 <script>
 let currentData = null;
@@ -91,6 +93,18 @@ function closeDropdown(event) {
     }
 }
 
+function ensureFourOptions(data) {
+    if (!data.opcje) data.opcje = [];
+    while (data.opcje.length < 4) {
+        data.opcje.push({
+            tytul: "",
+            podtytul: "",
+            rekomendowana: false,
+            widoczna: false
+        });
+    }
+}
+
 function loadFromFile(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -104,6 +118,8 @@ function loadFromFile(event) {
     reader.onload = function(e) {
         try {
             currentData = JSON.parse(e.target.result);
+            ensureFourOptions(currentData);
+
             document.getElementById('menu-btn-edit').classList.remove('hidden');
             document.getElementById('menu-btn-print').classList.remove('hidden');
 
@@ -130,6 +146,7 @@ function saveDataToFile() {
     currentData.pokaz_sekcje_harmonogram = document.getElementById('chk-sekcja-harmonogram').checked;
 
     currentData.opcje.forEach((op, i) => {
+        op.widoczna = document.getElementById(`inp-${i}-widoczna`).checked;
         op.tytul = document.getElementById(`inp-${i}-tytul`).value || '';
         op.podtytul = document.getElementById(`inp-${i}-podtytul`).value || '';
         op.rekomendowana = document.getElementById(`inp-${i}-rek`).checked;
@@ -191,7 +208,13 @@ function toggleSectionState(sectionName) {
     });
 }
 
-// Funkcja aktualizująca sumę miejsc postojowych w locie
+function toggleColumnState(index) {
+    const isChecked = document.getElementById(`inp-${index}-widoczna`).checked;
+    const container = document.getElementById(`kolumna-${index}-kontener`);
+    if(isChecked) container.classList.remove('section-disabled');
+    else container.classList.add('section-disabled');
+}
+
 function updateSum(index) {
     const vA = parseInt(document.getElementById(`inp-${index}-buda`).value) || 0;
     const vB = parseInt(document.getElementById(`inp-${index}-budb`).value) || 0;
@@ -230,79 +253,87 @@ function renderEditForm() {
             </label>
         </div>
 
-        <h2 class="text-2xl font-bold mb-4 text-gray-800 border-b pb-2 flex justify-between items-center">
-            Opcje Wariantowe
-            <div class="flex gap-4 text-sm font-normal">
+        <h2 class="text-2xl font-bold mb-4 text-gray-800 border-b pb-2 flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
+            Opcje Wariantowe (Kolumny)
+            <div class="flex flex-wrap gap-4 text-sm font-normal">
                 <label class="flex items-center cursor-pointer" title="Widoczność: Miejsca postojowe"><input id="chk-sekcja-miejsca" type="checkbox" ${showMiejsca ? 'checked' : ''} onchange="toggleSectionState('miejsca')" class="mr-1"> 🚗</label>
                 <label class="flex items-center cursor-pointer" title="Widoczność: Koszty"><input id="chk-sekcja-koszty" type="checkbox" ${showKoszty ? 'checked' : ''} onchange="toggleSectionState('koszty')" class="mr-1"> 💰</label>
                 <label class="flex items-center cursor-pointer" title="Widoczność: Przychody"><input id="chk-sekcja-przychody" type="checkbox" ${showPrzychody ? 'checked' : ''} onchange="toggleSectionState('przychody')" class="mr-1"> 📈</label>
                 <label class="flex items-center cursor-pointer" title="Widoczność: Harmonogram"><input id="chk-sekcja-harmonogram" type="checkbox" ${showHarmonogram ? 'checked' : ''} onchange="toggleSectionState('harmonogram')" class="mr-1"> ⏱️</label>
             </div>
         </h2>
-        <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
     `;
 
     currentData.opcje.forEach((op, i) => {
         const vA = op.budA || 0; const vB = op.budB || 0; const vC = op.budC || 0; const vD = op.budD || 0; const vE = op.budE || 0;
         const sumaMiejsc = vA + vB + vC + vD + vE;
+        const isWidoczna = op.widoczna !== false;
 
         formHTML += `
-        <div class="border border-gray-200 p-5 rounded-lg ${op.rekomendowana ? 'bg-blue-50/50 border-blue-200' : 'bg-gray-50'} shadow-sm relative">
-            <h3 class="font-bold text-lg mb-3 flex items-center justify-between">
-                <span>Wariant ${i+1}</span>
-            </h3>
+        <div class="border border-gray-200 p-4 rounded-lg bg-gray-50 shadow-sm relative flex flex-col">
 
-            <label class="flex items-center space-x-2 mb-5 bg-white p-3 border rounded shadow-sm cursor-pointer hover:bg-gray-50 transition">
-                <input id="inp-${i}-rek" type="checkbox" ${op.rekomendowana ? 'checked' : ''} class="w-5 h-5 text-blue-600 rounded">
-                <span class="font-semibold text-blue-800">Ustaw jako główną rekomendację</span>
-            </label>
+            <div class="flex justify-between items-center mb-3 border-b pb-2">
+                <h3 class="font-bold text-lg text-gray-800">Wariant ${i+1}</h3>
+                <label class="flex items-center space-x-1 text-sm cursor-pointer bg-white px-2 py-1 rounded border shadow-sm transition hover:bg-gray-100">
+                    <input id="inp-${i}-widoczna" type="checkbox" ${isWidoczna ? 'checked' : ''} onchange="toggleColumnState(${i})" class="w-4 h-4 text-blue-600 rounded">
+                    <span class="font-semibold text-gray-700">Włącz</span>
+                </label>
+            </div>
 
-            <div class="space-y-4">
+            <div id="kolumna-${i}-kontener" class="space-y-4 flex-grow ${isWidoczna ? '' : 'section-disabled'}">
+
+                <label class="flex items-center space-x-2 bg-white p-2 border rounded shadow-sm cursor-pointer hover:bg-blue-50 transition w-full">
+                    <input id="inp-${i}-rek" type="checkbox" ${op.rekomendowana ? 'checked' : ''} class="w-4 h-4 text-blue-600 rounded">
+                    <span class="font-semibold text-blue-800 text-sm">Główna rekomendacja</span>
+                </label>
+
                 <div>
                     <input id="inp-${i}-tytul" type="text" value="${op.tytul || ''}" placeholder="Tytuł, np. Opcja 1" class="w-full border p-2 rounded text-base font-bold text-gray-700 mb-1">
                     <input id="inp-${i}-podtytul" type="text" value="${op.podtytul || ''}" placeholder="Podtytuł" class="w-full border p-2 rounded text-sm text-gray-500">
                 </div>
 
-                <div class="sekcja-miejsca-kontener bg-white p-3 rounded border border-gray-200 ${showMiejsca ? '' : 'section-disabled'}">
-                    <div class="text-xs font-bold uppercase text-gray-500 mb-2 flex justify-between items-center">
+                <div class="sekcja-miejsca-kontener bg-white p-2.5 rounded border border-gray-200 ${showMiejsca ? '' : 'section-disabled'}">
+                    <div class="text-[11px] font-bold uppercase text-gray-500 mb-2 flex justify-between items-center">
                         <span>Miejsca postojowe</span>
-                        <span id="sum-display-${i}" class="text-sm font-bold ${op.rekomendowana ? 'text-blue-900' : 'text-gray-700'} bg-gray-100 px-2 py-0.5 rounded border border-gray-200">Σ ${sumaMiejsc}</span>
+                        <span id="sum-display-${i}" class="text-xs font-bold text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">Σ ${sumaMiejsc}</span>
                     </div>
-                    <div class="grid grid-cols-5 gap-2">
-                        <div><label class="text-[10px] text-gray-400">Bud A</label><input id="inp-${i}-buda" type="number" value="${op.budA ?? ''}" oninput="updateSum(${i})" class="w-full border p-1 rounded text-sm text-center font-semibold"></div>
-                        <div><label class="text-[10px] text-gray-400">Bud B</label><input id="inp-${i}-budb" type="number" value="${op.budB ?? ''}" oninput="updateSum(${i})" class="w-full border p-1 rounded text-sm text-center font-semibold"></div>
-                        <div><label class="text-[10px] text-gray-400">Bud C</label><input id="inp-${i}-budc" type="number" value="${op.budC ?? ''}" oninput="updateSum(${i})" class="w-full border p-1 rounded text-sm text-center font-semibold"></div>
-                        <div><label class="text-[10px] text-gray-400">Bud D</label><input id="inp-${i}-budd" type="number" value="${op.budD ?? ''}" oninput="updateSum(${i})" class="w-full border p-1 rounded text-sm text-center font-semibold"></div>
-                        <div><label class="text-[10px] text-gray-400">Bud E</label><input id="inp-${i}-bude" type="number" value="${op.budE ?? ''}" oninput="updateSum(${i})" class="w-full border p-1 rounded text-sm text-center font-semibold"></div>
+                    <div class="grid grid-cols-5 gap-1.5">
+                        <div><label class="text-[9px] text-gray-400 block text-center">Bud A</label><input id="inp-${i}-buda" type="number" value="${op.budA ?? ''}" oninput="updateSum(${i})" class="w-full border p-1 rounded text-xs text-center font-semibold"></div>
+                        <div><label class="text-[9px] text-gray-400 block text-center">Bud B</label><input id="inp-${i}-budb" type="number" value="${op.budB ?? ''}" oninput="updateSum(${i})" class="w-full border p-1 rounded text-xs text-center font-semibold"></div>
+                        <div><label class="text-[9px] text-gray-400 block text-center">Bud C</label><input id="inp-${i}-budc" type="number" value="${op.budC ?? ''}" oninput="updateSum(${i})" class="w-full border p-1 rounded text-xs text-center font-semibold"></div>
+                        <div><label class="text-[9px] text-gray-400 block text-center">Bud D</label><input id="inp-${i}-budd" type="number" value="${op.budD ?? ''}" oninput="updateSum(${i})" class="w-full border p-1 rounded text-xs text-center font-semibold"></div>
+                        <div><label class="text-[9px] text-gray-400 block text-center">Bud E</label><input id="inp-${i}-bude" type="number" value="${op.budE ?? ''}" oninput="updateSum(${i})" class="w-full border p-1 rounded text-xs text-center font-semibold"></div>
                     </div>
                 </div>
 
-                <div class="sekcja-koszty-kontener bg-white p-3 rounded border border-gray-200 ${showKoszty ? '' : 'section-disabled'}">
-                    <div class="text-xs font-bold uppercase text-gray-500 mb-2">Koszty</div>
+                <div class="sekcja-koszty-kontener bg-white p-2.5 rounded border border-gray-200 ${showKoszty ? '' : 'section-disabled'}">
+                    <div class="text-[11px] font-bold uppercase text-gray-500 mb-2">Koszty</div>
                     <div class="flex gap-2 mb-2">
-                        <input id="inp-${i}-koszt-w" type="text" value="${op.koszty_wartosc || ''}" placeholder="Koszt" class="w-1/3 border p-1.5 rounded text-sm font-semibold">
-                        <label class="flex items-center space-x-2 text-xs font-medium cursor-pointer w-2/3 bg-red-50 px-2 rounded border border-red-100"><input id="inp-${i}-koszt-a" type="checkbox" ${op.koszty_alert?'checked':''} class="rounded text-red-600"><span class="text-red-700">Oznacz na czerwono</span></label>
+                        <input id="inp-${i}-koszt-w" type="text" value="${op.koszty_wartosc || ''}" placeholder="Koszt" class="w-1/3 border p-1 rounded text-sm font-semibold">
+                        <label class="flex items-center justify-center space-x-1 text-[10px] font-medium cursor-pointer w-2/3 bg-red-50 rounded border border-red-100"><input id="inp-${i}-koszt-a" type="checkbox" ${op.koszty_alert?'checked':''} class="rounded text-red-600"><span class="text-red-700">Kolor czerwony</span></label>
                     </div>
-                    <textarea id="inp-${i}-koszt-o" placeholder="Komentarz do kosztów (każda nowa linia to nowy bullet)" class="w-full border p-1.5 rounded text-xs text-red-700 h-20 resize-y">${op.koszty_opis || ''}</textarea>
+                    <textarea id="inp-${i}-koszt-o" placeholder="Komentarz do kosztów (każda nowa linia to nowy bullet)" class="w-full border p-1.5 rounded text-xs text-red-700 h-16 resize-y">${op.koszty_opis || ''}</textarea>
                 </div>
 
-                <div class="sekcja-przychody-kontener bg-white p-3 rounded border border-gray-200 ${showPrzychody ? '' : 'section-disabled'}">
-                    <div class="text-xs font-bold uppercase text-gray-500 mb-2">Przychody</div>
-                    <input id="inp-${i}-przych-w" type="text" value="${op.przychody_wartosc || ''}" placeholder="Przychód" class="w-1/3 border p-1.5 rounded text-sm font-semibold mb-2">
-                    <textarea id="inp-${i}-przych-o" placeholder="Komentarz do przychodów (każda nowa linia to nowy bullet)" class="w-full border p-1.5 rounded text-xs text-green-700 h-20 resize-y">${op.przychody_opis || ''}</textarea>
+                <div class="sekcja-przychody-kontener bg-white p-2.5 rounded border border-gray-200 ${showPrzychody ? '' : 'section-disabled'}">
+                    <div class="text-[11px] font-bold uppercase text-gray-500 mb-2">Przychody</div>
+                    <input id="inp-${i}-przych-w" type="text" value="${op.przychody_wartosc || ''}" placeholder="Przychód" class="w-1/3 border p-1 rounded text-sm font-semibold mb-2">
+                    <textarea id="inp-${i}-przych-o" placeholder="Komentarz do przychodów (każda nowa linia to nowy bullet)" class="w-full border p-1.5 rounded text-xs text-green-700 h-16 resize-y">${op.przychody_opis || ''}</textarea>
                 </div>
 
-                <div class="sekcja-harmonogram-kontener bg-white p-3 rounded border border-gray-200 ${showHarmonogram ? '' : 'section-disabled'}">
-                    <div class="text-xs font-bold uppercase text-gray-500 mb-2">Harmonogram</div>
+                <div class="sekcja-harmonogram-kontener bg-white p-2.5 rounded border border-gray-200 mt-auto ${showHarmonogram ? '' : 'section-disabled'}">
+                    <div class="text-[11px] font-bold uppercase text-gray-500 mb-2">Harmonogram</div>
                     <div class="flex items-center gap-2 mb-2">
-                        <span class="text-xs w-16 text-gray-500">Budowa:</span>
-                        <input id="inp-${i}-czasb-w" type="text" value="${op.czas_budowy || ''}" class="w-24 border p-1 rounded text-sm font-semibold text-center">
-                        <label class="flex items-center space-x-1 text-xs cursor-pointer"><input id="inp-${i}-czasb-a" type="checkbox" ${op.czas_budowy_alert?'checked':''} class="rounded"><span>Alert</span></label>
+                        <span class="text-[10px] w-12 text-gray-500">Budowa:</span>
+                        <input id="inp-${i}-czasb-w" type="text" value="${op.czas_budowy || ''}" class="w-20 border p-1 rounded text-xs font-semibold text-center">
+                        <label class="flex items-center space-x-1 text-[10px] cursor-pointer"><input id="inp-${i}-czasb-a" type="checkbox" ${op.czas_budowy_alert?'checked':''} class="rounded text-red-600"><span>Alert</span></label>
                     </div>
                     <div class="flex items-center gap-2">
-                        <span class="text-xs w-16 text-gray-500">Komercjal.:</span>
-                        <input id="inp-${i}-czask-w" type="text" value="${op.czas_komercjalizacji || ''}" class="w-24 border p-1 rounded text-sm font-semibold text-center">
-                        <label class="flex items-center space-x-1 text-xs cursor-pointer"><input id="inp-${i}-czask-s" type="checkbox" ${op.czas_komercjalizacji_sukces?'checked':''} class="rounded text-green-600"><span>Sukces</span></label>
+                        <span class="text-[10px] w-12 text-gray-500">Komercj:</span>
+                        <input id="inp-${i}-czask-w" type="text" value="${op.czas_komercjalizacji || ''}" class="w-20 border p-1 rounded text-xs font-semibold text-center">
+                        <label class="flex items-center space-x-1 text-[10px] cursor-pointer"><input id="inp-${i}-czask-s" type="checkbox" ${op.czas_komercjalizacji_sukces?'checked':''} class="rounded text-green-600"><span>Sukces</span></label>
                     </div>
                 </div>
             </div>
@@ -323,6 +354,18 @@ function renderView() {
     const showKoszty = currentData.pokaz_sekcje_koszty !== false;
     const showPrzychody = currentData.pokaz_sekcje_przychody !== false;
     const showHarmonogram = currentData.pokaz_sekcje_harmonogram !== false;
+
+    const visibleOptions = currentData.opcje.filter(op => op.widoczna !== false);
+    const colCount = visibleOptions.length || 1;
+
+    // ZMIANA: Usunięcie 'transform scale', zastąpienie 'zoom' do dynamicznego upychania na A4.
+    let gridCols = 'lg:grid-cols-3 print:grid-cols-3';
+    let printScale = 'print:[zoom:0.85]';
+    let gapClass = 'gap-6 print:gap-4';
+
+    if (colCount === 1) { gridCols = 'lg:grid-cols-1 print:grid-cols-1'; printScale = 'print:[zoom:0.95]'; }
+    else if (colCount === 2) { gridCols = 'lg:grid-cols-2 print:grid-cols-2'; printScale = 'print:[zoom:0.90]'; }
+    else if (colCount === 4) { gridCols = 'lg:grid-cols-4 print:grid-cols-4'; printScale = 'print:[zoom:0.71]'; gapClass = 'gap-4 print:gap-3'; }
 
     const getGridHtml = (vA, vB, vC, vD, vE, isRec) => {
         const borderCss = isRec ? 'border-blue-100 bg-blue-50/40' : 'border-gray-100 bg-gray-50/50';
@@ -370,15 +413,16 @@ function renderView() {
         `;
     };
 
-    const kartyHTML = currentData.opcje.map(op => {
+    const kartyHTML = visibleOptions.map(op => {
         const isRec = op.rekomendowana;
         const vA = op.budA || 0; const vB = op.budB || 0; const vC = op.budC || 0; const vD = op.budD || 0; const vE = op.budE || 0;
         const sumaMiejsc = vA + vB + vC + vD + vE;
 
-        // Klasy print: decydują o ułożeniu obok siebie w trybie druku (grid, col-span)
+        const paddingClass = colCount === 4 ? 'p-3 lg:p-4' : 'p-4 lg:p-6';
+
         const cardCss = isRec
-            ? 'bg-white rounded-xl shadow-xl border-2 border-blue-600 p-4 lg:p-6 flex flex-col relative z-10 transform scale-105 print:transform-none print:scale-100 print:col-span-1 print:h-full'
-            : 'bg-white rounded-xl shadow-sm border border-gray-200 p-4 lg:p-6 flex flex-col mt-4 lg:mt-8 print:mt-0 print:col-span-1 print:h-full';
+            ? `print-card bg-white rounded-xl shadow-xl border-2 border-blue-600 ${paddingClass} flex flex-col relative z-10 transform scale-105 print:transform-none print:col-span-1 print:h-full`
+            : `print-card bg-white rounded-xl shadow-sm border border-gray-200 ${paddingClass} flex flex-col mt-4 lg:mt-8 print:mt-0 print:col-span-1 print:h-full`;
 
         const boxCss = isRec ? 'bg-blue-50 p-3 rounded border border-blue-100' : 'bg-gray-50 p-3 rounded border border-gray-100';
 
@@ -450,19 +494,20 @@ function renderView() {
         return cardContent;
     }).join('');
 
-    // Dodano klasy print: wymuszające ułożenie w 3 kolumnach przy drukowaniu
     const layoutHTML = `
-        <div class="mb-8 pt-4 text-center print:mb-4 print:pt-0">
-            <h1 class="text-3xl md:text-4xl font-bold mb-6 text-gray-900 print:text-2xl print:mb-4">${currentData.naglowek || ''}</h1>
-            <div class="inline-block bg-blue-50 border border-blue-200 rounded-lg p-5 text-left max-w-4xl print:p-3 print:max-w-none print:w-full">
-                <p class="text-base text-gray-800 leading-snug">
-                    <strong class="text-blue-800 font-bold uppercase tracking-wide mr-2">${currentData.bluf_wyroznienie || ''}</strong>
-                    ${currentData.bluf_tekst || ''}
-                </p>
+        <div class="w-full max-w-7xl px-4 md:px-8 print:p-0 print:max-w-none ${printScale}">
+            <div class="mb-8 pt-4 text-center print:mb-4 print:pt-0">
+                <h1 class="text-3xl md:text-4xl font-bold mb-6 text-gray-900 print:text-2xl print:mb-3">${currentData.naglowek || ''}</h1>
+                <div class="inline-block bg-blue-50 border border-blue-200 rounded-lg p-5 text-left max-w-4xl print:p-3 print:max-w-none print:w-full">
+                    <p class="text-base text-gray-800 leading-snug">
+                        <strong class="text-blue-800 font-bold uppercase tracking-wide mr-2">${currentData.bluf_wyroznienie || ''}</strong>
+                        ${currentData.bluf_tekst || ''}
+                    </p>
+                </div>
             </div>
-        </div>
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch pb-8 print:grid-cols-3 print:gap-4 print:pb-0">
-            ${kartyHTML}
+            <div class="grid grid-cols-1 ${gridCols} ${gapClass} items-stretch pb-8 print:pb-0">
+                ${kartyHTML}
+            </div>
         </div>
     `;
 
